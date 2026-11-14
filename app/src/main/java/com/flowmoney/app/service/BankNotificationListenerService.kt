@@ -54,23 +54,49 @@ class BankNotificationListenerService : NotificationListenerService() {
         // Extract title (check both standard title and big title)
         val titleBig = extras.getCharSequence(Notification.EXTRA_TITLE_BIG)?.toString()
         val titleStd = extras.getString(Notification.EXTRA_TITLE)
-        val title = titleBig ?: titleStd ?: ""
+        val title = listOfNotNull(titleBig, titleStd)
+            .map { it.trim() }
+            .firstOrNull { it.isNotBlank() } ?: ""
 
-        // Extract body text with full multi-line fallback (BigTextStyle, lines, text, ticker)
-        val bigText = extras.getCharSequence(Notification.EXTRA_BIG_TEXT)?.toString()
+        // Extract and combine ALL notification body parts without dropping anything
         val stdText = extras.getCharSequence(Notification.EXTRA_TEXT)?.toString()
+        val bigText = extras.getCharSequence(Notification.EXTRA_BIG_TEXT)?.toString()
         val subText = extras.getCharSequence(Notification.EXTRA_SUB_TEXT)?.toString()
-        val lines = extras.getCharSequenceArray(Notification.EXTRA_TEXT_LINES)?.joinToString("\n")
+        val infoText = extras.getCharSequence(Notification.EXTRA_INFO_TEXT)?.toString()
+        val summaryText = extras.getCharSequence(Notification.EXTRA_SUMMARY_TEXT)?.toString()
+        val lines = extras.getCharSequenceArray(Notification.EXTRA_TEXT_LINES)?.mapNotNull { it?.toString() }
         val ticker = sbn.notification?.tickerText?.toString()
 
-        val text = when {
-            !bigText.isNullOrBlank() -> bigText
-            !lines.isNullOrBlank() -> lines
-            !stdText.isNullOrBlank() -> stdText
-            !subText.isNullOrBlank() -> subText
-            !ticker.isNullOrBlank() -> ticker
-            else -> ""
+        val bodyElements = mutableListOf<String>()
+        // If titleStd is different from title and contains transaction info (e.g. amount), retain it
+        if (!titleStd.isNullOrBlank() && titleStd.trim() != title.trim()) {
+            bodyElements.add(titleStd.trim())
         }
+        if (!stdText.isNullOrBlank()) {
+            bodyElements.add(stdText.trim())
+        }
+        if (!bigText.isNullOrBlank() && bigText.trim() != stdText?.trim()) {
+            bodyElements.add(bigText.trim())
+        }
+        if (!subText.isNullOrBlank() && !bodyElements.contains(subText.trim())) {
+            bodyElements.add(subText.trim())
+        }
+        if (!infoText.isNullOrBlank() && !bodyElements.contains(infoText.trim())) {
+            bodyElements.add(infoText.trim())
+        }
+        if (!summaryText.isNullOrBlank() && !bodyElements.contains(summaryText.trim())) {
+            bodyElements.add(summaryText.trim())
+        }
+        lines?.forEach { line ->
+            if (line.isNotBlank() && !bodyElements.contains(line.trim())) {
+                bodyElements.add(line.trim())
+            }
+        }
+        if (!ticker.isNullOrBlank() && !bodyElements.contains(ticker.trim())) {
+            bodyElements.add(ticker.trim())
+        }
+
+        val text = bodyElements.joinToString("\n")
 
         if (title.isBlank() && text.isBlank()) return
 

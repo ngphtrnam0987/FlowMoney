@@ -136,6 +136,42 @@ class NotificationListenerPipelineTest {
     }
 
     @Test
+    fun testTechcombankUserScreenshotCase() {
+        val parser = TechcombankParser()
+        val title = "Techcombank: -3,000 VND"
+        val body = """
+            Tài khoản: 19073124996013
+            Số dư: VND 3,650
+            156895296834-0926906226-NGUYEN PHAN TRONG NAM chuyen tien qua MoMo
+        """.trimIndent()
+
+        val parsed = parser.parse(title, body, System.currentTimeMillis())
+        assertNotNull(parsed)
+        assertEquals("TCB", parsed!!.bankIdentifier)
+        assertEquals(3000L, parsed.amountMinor)
+        assertEquals(TransactionDirection.EXPENSE, parsed.direction)
+        assertEquals(3650L, parsed.balanceAfterMinor)
+        assertEquals("19073124996013", parsed.maskedAccount)
+        assertTrue(parsed.transactionDescription.contains("chuyen tien qua MoMo"))
+    }
+
+    @Test
+    fun testMomoUserScreenshotCase() {
+        val parser = com.flowmoney.app.domain.parser.MomoParser()
+        val text = """Số tiền 3.000 đ về Túi Thần Tài. Lời nhắn: "NGUYEN PHAN TRONG NAM chuyen tien FT26318343885839"."""
+
+        assertTrue(parser.canParse("com.mservice.momotransfer", "MoMo", text))
+        val parsed = parser.parse("MoMo", text, System.currentTimeMillis())
+
+        assertNotNull(parsed)
+        assertEquals("MOMO", parsed!!.bankIdentifier)
+        assertEquals(3000L, parsed.amountMinor)
+        assertEquals(TransactionDirection.INCOME, parsed.direction)
+        assertTrue(parsed.externalReference?.contains("FT26318343885839") == true)
+        assertTrue(parsed.transactionDescription.contains("NGUYEN PHAN TRONG NAM chuyen tien"))
+    }
+
+    @Test
     fun testBidvRealNotificationParsing() {
         val parser = BidvParser()
         val text = "TK 1234567890: -200,000 VND lúc 12:00 14/05/2024. Số dư: 4,500,000 VND. ND: An trua nha hang"

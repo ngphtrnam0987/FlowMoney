@@ -47,8 +47,10 @@ object CurrencyUtils {
         val clean = rawText.trim().lowercase(Locale.ROOT)
             .replace("vnd", "")
             .replace("đ", "")
+            .replace("₫", "")
             .replace("dong", "")
             .replace("đồng", "")
+            .replace("d", "")
             .replace(" ", "")
 
         // Check for 'tr' or 'm' (triệu / million)

@@ -10,11 +10,12 @@ class BankNotificationParserRegistry @Inject constructor() {
     private val genericParser = GenericBankParser()
 
     init {
-        // Register top Vietnamese bank parsers
+        // Register top Vietnamese bank and fintech parsers
         registerParser(VietcombankParser())
         registerParser(MbBankParser())
         registerParser(TechcombankParser())
         registerParser(BidvParser())
+        registerParser(MomoParser())
     }
 
     fun registerParser(parser: BankNotificationParser) {

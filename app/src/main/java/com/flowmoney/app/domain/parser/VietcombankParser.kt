@@ -23,13 +23,26 @@ class VietcombankParser : BankNotificationParser {
         val fullContent = "$title $text"
         if (isOtpNotification(fullContent)) return null
 
-        // Extract amount: e.g. -120,000 VND or +5,000,000 VND or GD: -120.000VND
-        val amountPattern = Pattern.compile("([+-]?\\s*[0-9]{1,3}(?:[.,][0-9]{3})*)\\s*(?:VND|đ|d)", Pattern.CASE_INSENSITIVE)
-        val amountMatcher = amountPattern.matcher(fullContent)
+        // 1. Extract balance first so the amount matcher never confuses balance for transaction amount
+        val balancePattern = Pattern.compile("(?:so du|sodu|số dư|sd)(?:\\s+(?:kha dung|khả dụng|cuối|cuoi|hien tai|hiện tại))?\\s*:?\\s*(?:vnd|đ|₫)?\\s*([0-9]{1,3}(?:[.,][0-9]{3})*)", Pattern.CASE_INSENSITIVE)
+        val balanceMatcher = balancePattern.matcher(fullContent)
+        var balanceAfter: Long? = null
+        var contentWithoutBalance = fullContent
+        if (balanceMatcher.find()) {
+            balanceAfter = CurrencyUtils.parseAmount(balanceMatcher.group(1))
+            val matched = balanceMatcher.group(0)
+            if (matched != null) {
+                contentWithoutBalance = fullContent.replace(matched, " ")
+            }
+        }
+
+        // 2. Extract transaction amount
+        val amountPattern = Pattern.compile("([+-]?\\s*[0-9]{1,3}(?:[.,][0-9]{3})*)\\s*(?:VND|đ|₫|d)", Pattern.CASE_INSENSITIVE)
+        val amountMatcher = amountPattern.matcher(contentWithoutBalance)
         val rawAmount = if (amountMatcher.find()) amountMatcher.group(1)?.trim() else null
         val amountMinor = CurrencyUtils.parseAmount(rawAmount) ?: return null
 
-        // Detect direction
+        // 3. Detect direction
         val direction = when {
             rawAmount?.startsWith("+") == true -> TransactionDirection.INCOME
             rawAmount?.startsWith("-") == true -> TransactionDirection.EXPENSE
@@ -41,11 +54,6 @@ class VietcombankParser : BankNotificationParser {
             fullContent.contains("cộng", ignoreCase = true) -> TransactionDirection.INCOME
             else -> TransactionDirection.EXPENSE
         }
-
-        // Extract balance after transaction: e.g. So du 5,230,000 VND or SD: 5,230,000VND
-        val balancePattern = Pattern.compile("(?:so du|sodu|số dư|sd)(?:\\s+(?:kha dung|khả dụng|cuối|cuoi|hien tai|hiện tại))?\\s*:?\\s*([0-9]{1,3}(?:[.,][0-9]{3})*)", Pattern.CASE_INSENSITIVE)
-        val balanceMatcher = balancePattern.matcher(fullContent)
-        val balanceAfter = if (balanceMatcher.find()) CurrencyUtils.parseAmount(balanceMatcher.group(1)) else null
 
         // Extract reference number: Ref MBVCB.12345 or Ref: 12345
         val refPattern = Pattern.compile("(?:ref|ma gd|mã gd|so gd|số gd)\\s*:?\\s*([A-Za-z0-9.]+)", Pattern.CASE_INSENSITIVE)

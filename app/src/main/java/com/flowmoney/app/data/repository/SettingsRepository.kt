@@ -77,6 +77,7 @@ class SettingsRepository @Inject constructor(
     val enabledBanksFlow: Flow<Set<String>> = context.dataStore.data.map { preferences ->
         preferences[KEY_ENABLED_BANKS] ?: setOf(
             "com.VCB",
+            "com.vcb.digibank",
             "com.mbmobile",
             "vn.com.techcombank.bb.app",
             "com.vnpay.bidv",
@@ -85,7 +86,8 @@ class SettingsRepository @Inject constructor(
             "com.tpb.mb.gprsandroid",
             "com.vpbank.neo",
             "com.vnpay.sacombank",
-            "com.vib.myvib2"
+            "com.vib.myvib2",
+            "com.mservice.momotransfer"
         )
     }
 
@@ -93,6 +95,7 @@ class SettingsRepository @Inject constructor(
         context.dataStore.edit { preferences ->
             val current = preferences[KEY_ENABLED_BANKS]?.toMutableSet() ?: mutableSetOf(
                 "com.VCB",
+                "com.vcb.digibank",
                 "com.mbmobile",
                 "vn.com.techcombank.bb.app",
                 "com.vnpay.bidv",
@@ -101,7 +104,8 @@ class SettingsRepository @Inject constructor(
                 "com.tpb.mb.gprsandroid",
                 "com.vpbank.neo",
                 "com.vnpay.sacombank",
-                "com.vib.myvib2"
+                "com.vib.myvib2",
+                "com.mservice.momotransfer"
             )
             if (enabled) {
                 current.add(bankPackage)

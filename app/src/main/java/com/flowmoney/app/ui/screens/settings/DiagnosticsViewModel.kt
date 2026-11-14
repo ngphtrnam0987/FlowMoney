@@ -177,10 +177,11 @@ class DiagnosticsViewModel @Inject constructor(
                     "com.tpb.mb.gprsandroid",
                     "com.vpbank.neo",
                     "com.vnpay.sacombank",
-                    "com.vib.myvib2"
+                    "com.vib.myvib2",
+                    "com.mservice.momotransfer"
                 )
 
-                val bankKeywords = listOf("bank", "vcb", "mb", "bidv", "techcombank", "vietin", "acb", "tpb", "vpbank", "vib", "sacom")
+                val bankKeywords = listOf("bank", "vcb", "mb", "bidv", "techcombank", "vietin", "acb", "tpb", "vpbank", "vib", "sacom", "momo")
 
                 val detected = mutableListOf<InstalledBankAppInfo>()
                 for (app in installedPackages) {

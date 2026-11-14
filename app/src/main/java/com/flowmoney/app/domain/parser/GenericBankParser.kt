@@ -15,6 +15,7 @@ class GenericBankParser(
         val fullContent = "$title $text"
         val hasMoney = fullContent.contains("VND", ignoreCase = true) ||
                        fullContent.contains("đ", ignoreCase = true) ||
+                       fullContent.contains("₫", ignoreCase = true) ||
                        fullContent.contains("dong", ignoreCase = true)
         val hasTransactionSignal = fullContent.contains("GD", ignoreCase = true) ||
                                   fullContent.contains("biến động", ignoreCase = true) ||
@@ -25,6 +26,8 @@ class GenericBankParser(
                                   fullContent.contains("thanh toán", ignoreCase = true) ||
                                   fullContent.contains("chuyen khoan", ignoreCase = true) ||
                                   fullContent.contains("chuyển khoản", ignoreCase = true) ||
+                                  fullContent.contains("chuyen tien", ignoreCase = true) ||
+                                  fullContent.contains("chuyển tiền", ignoreCase = true) ||
                                   fullContent.contains("nhan tien", ignoreCase = true) ||
                                   fullContent.contains("nhận tiền", ignoreCase = true)
         return hasMoney && hasTransactionSignal
@@ -34,10 +37,31 @@ class GenericBankParser(
         val fullContent = "$title $text"
         if (isOtpNotification(fullContent)) return null
 
-        // Extract amount: e.g. -120,000 VND, 120.000đ, etc.
-        val amountPattern = Pattern.compile("([+-]?\\s*[0-9]{1,3}(?:[.,][0-9]{3})*)\\s*(?:VND|đ|d)", Pattern.CASE_INSENSITIVE)
-        val amountMatcher = amountPattern.matcher(fullContent)
-        val rawAmount = if (amountMatcher.find()) amountMatcher.group(1)?.trim() else null
+        // 1. Extract balance first so the amount matcher never confuses balance for transaction amount
+        val balancePattern = Pattern.compile(
+            "(?:so du|số dư|sd)(?:\\s+(?:kha dung|khả dụng|cuối|cuoi|hien tai|hiện tại))?\\s*:?\\s*(?:vnd|đ|₫)?\\s*([0-9]{1,3}(?:[.,][0-9]{3})*)",
+            Pattern.CASE_INSENSITIVE
+        )
+        val balanceMatcher = balancePattern.matcher(fullContent)
+        var balanceAfter: Long? = null
+        var contentWithoutBalance = fullContent
+        if (balanceMatcher.find()) {
+            balanceAfter = CurrencyUtils.parseAmount(balanceMatcher.group(1))
+            val matched = balanceMatcher.group(0)
+            if (matched != null) {
+                contentWithoutBalance = fullContent.replace(matched, " ")
+            }
+        }
+
+        // 2. Extract amount: e.g. -120,000 VND, 120.000đ, 120.000 ₫, VND 120,000, etc.
+        val amountPattern = Pattern.compile(
+            "([+-]?\\s*[0-9]{1,3}(?:[.,][0-9]{3})*)\\s*(?:VND|đ|₫|d)|(?:VND|đ|₫)\\s*([+-]?\\s*[0-9]{1,3}(?:[.,][0-9]{3})*)",
+            Pattern.CASE_INSENSITIVE
+        )
+        val amountMatcher = amountPattern.matcher(contentWithoutBalance)
+        val rawAmount = if (amountMatcher.find()) {
+            (amountMatcher.group(1) ?: amountMatcher.group(2))?.trim()
+        } else null
         val amountMinor = CurrencyUtils.parseAmount(rawAmount) ?: return null
 
         val direction = when {
@@ -51,11 +75,6 @@ class GenericBankParser(
             fullContent.contains("cộng", ignoreCase = true) -> TransactionDirection.INCOME
             else -> TransactionDirection.EXPENSE
         }
-
-        // Extract balance
-        val balancePattern = Pattern.compile("(?:so du|số dư|sd)(?:\\s+(?:kha dung|khả dụng|cuối|cuoi|hien tai|hiện tại))?\\s*:?\\s*([0-9]{1,3}(?:[.,][0-9]{3})*)", Pattern.CASE_INSENSITIVE)
-        val balanceMatcher = balancePattern.matcher(fullContent)
-        val balanceAfter = if (balanceMatcher.find()) CurrencyUtils.parseAmount(balanceMatcher.group(1)) else null
 
         // Description
         val descPattern = Pattern.compile("(?:nd|noi dung|nội dung)\\s*:?\\s*(.+?)(?:\\.|Ref|So du|$)", Pattern.CASE_INSENSITIVE)

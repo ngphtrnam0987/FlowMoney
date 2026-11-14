@@ -57,7 +57,8 @@ class SettingsViewModel @Inject constructor(
         Pair("TPBank", "com.tpb.mb.gprsandroid"),
         Pair("VPBank", "com.vpbank.neo"),
         Pair("Sacombank", "com.vnpay.sacombank"),
-        Pair("VIB", "com.vib.myvib2")
+        Pair("VIB", "com.vib.myvib2"),
+        Pair("Ví MoMo", "com.mservice.momotransfer")
     )
 
     private val _message = MutableStateFlow<String?>(null)

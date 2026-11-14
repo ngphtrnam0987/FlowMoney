@@ -724,6 +724,16 @@ private fun AuditLogItemCard(
 
             Spacer(modifier = Modifier.height(8.dp))
 
+            if (log.title.isNotBlank() && log.title != (log.appName ?: log.packageName)) {
+                Text(
+                    text = "Tiêu đề: ${log.title}",
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = FlowPrimary
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+            }
+
             // Sanitized text snippet
             Text(
                 text = log.sanitizedSnippet,
