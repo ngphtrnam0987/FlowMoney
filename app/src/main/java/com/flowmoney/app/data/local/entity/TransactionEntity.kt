@@ -47,6 +47,7 @@ data class TransactionEntity(
     val balanceAfterMinor: Long? = null,
     val transferAccountId: Long? = null,
     val isExcludedFromBudget: Boolean = false,
+    val isTestTransaction: Boolean = false,
     val isDeleted: Boolean = false,
     val createdAt: Long = System.currentTimeMillis(),
     val updatedAt: Long = System.currentTimeMillis()

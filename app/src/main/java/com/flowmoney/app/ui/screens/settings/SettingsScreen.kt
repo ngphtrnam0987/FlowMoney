@@ -63,6 +63,7 @@ fun SettingsScreen(
     onNavigateToBudgets: () -> Unit,
     onNavigateToCategories: () -> Unit,
     onNavigateToPrivacy: () -> Unit,
+    onNavigateToDiagnostics: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val state by viewModel.uiState.collectAsState()
@@ -131,6 +132,43 @@ fun SettingsScreen(
                             modifier = Modifier.fillMaxWidth()
                         ) {
                             Text("Cấp quyền truy cập thông báo", fontSize = 13.sp)
+                        }
+
+                        Spacer(modifier = Modifier.height(10.dp))
+
+                        Button(
+                            onClick = onNavigateToDiagnostics,
+                            colors = ButtonDefaults.buttonColors(containerColor = FlowDarkSurface),
+                            shape = RoundedCornerShape(10.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(
+                                        imageVector = Icons.Default.Security,
+                                        contentDescription = null,
+                                        tint = FlowPrimary,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(
+                                        text = "Chẩn đoán & Kiểm tra (Diagnostics)",
+                                        fontSize = 13.sp,
+                                        color = FlowTextPrimary,
+                                        fontWeight = FontWeight.SemiBold
+                                    )
+                                }
+                                Icon(
+                                    imageVector = Icons.Default.ArrowForwardIos,
+                                    contentDescription = null,
+                                    tint = FlowTextSecondary,
+                                    modifier = Modifier.size(12.dp)
+                                )
+                            }
                         }
                     }
                 }

@@ -24,13 +24,13 @@ data class FinancialSummary(
 @Dao
 interface TransactionDao {
 
-    @Query("SELECT * FROM transactions WHERE isDeleted = 0 ORDER BY transactionTime DESC")
+    @Query("SELECT * FROM transactions WHERE isDeleted = 0 AND isTestTransaction = 0 ORDER BY transactionTime DESC")
     fun getAllTransactionsFlow(): Flow<List<TransactionEntity>>
 
-    @Query("SELECT * FROM transactions WHERE isDeleted = 0 ORDER BY transactionTime DESC LIMIT :limit")
+    @Query("SELECT * FROM transactions WHERE isDeleted = 0 AND isTestTransaction = 0 ORDER BY transactionTime DESC LIMIT :limit")
     fun getRecentTransactionsFlow(limit: Int = 10): Flow<List<TransactionEntity>>
 
-    @Query("SELECT * FROM transactions WHERE isDeleted = 0 AND classificationStatus = :status ORDER BY transactionTime DESC")
+    @Query("SELECT * FROM transactions WHERE isDeleted = 0 AND isTestTransaction = 0 AND classificationStatus = :status ORDER BY transactionTime DESC")
     fun getTransactionsByStatusFlow(status: ClassificationStatus = ClassificationStatus.PENDING): Flow<List<TransactionEntity>>
 
     @Query("SELECT * FROM transactions WHERE id = :id AND isDeleted = 0")
@@ -39,6 +39,7 @@ interface TransactionDao {
     @Query("""
         SELECT * FROM transactions 
         WHERE isDeleted = 0 
+          AND isTestTransaction = 0
           AND transactionTime >= :startTime 
           AND transactionTime <= :endTime 
         ORDER BY transactionTime DESC
@@ -48,6 +49,7 @@ interface TransactionDao {
     @Query("""
         SELECT * FROM transactions 
         WHERE isDeleted = 0 
+          AND isTestTransaction = 0
           AND transactionTime >= :startTime 
           AND transactionTime <= :endTime 
         ORDER BY transactionTime DESC
@@ -60,6 +62,7 @@ interface TransactionDao {
             COALESCE(SUM(CASE WHEN direction = 'EXPENSE' THEN amountMinor ELSE 0 END), 0) AS totalExpense
         FROM transactions 
         WHERE isDeleted = 0 
+          AND isTestTransaction = 0
           AND transactionTime >= :startTime 
           AND transactionTime <= :endTime
     """)
@@ -71,6 +74,7 @@ interface TransactionDao {
             SUM(amountMinor) AS totalAmount
         FROM transactions 
         WHERE isDeleted = 0 
+          AND isTestTransaction = 0
           AND direction = 'EXPENSE'
           AND transactionTime >= :startTime 
           AND transactionTime <= :endTime
@@ -82,6 +86,7 @@ interface TransactionDao {
     @Query("""
         SELECT * FROM transactions 
         WHERE isDeleted = 0 
+          AND isTestTransaction = 0
           AND amountMinor = :amountMinor 
           AND direction = :direction
           AND transactionTime >= :minTime 
@@ -103,6 +108,12 @@ interface TransactionDao {
     """)
     suspend fun findByExternalReference(externalReference: String): TransactionEntity?
 
+    @Query("SELECT * FROM transactions WHERE isTestTransaction = 1 ORDER BY transactionTime DESC LIMIT 20")
+    fun getTestTransactionsFlow(): Flow<List<TransactionEntity>>
+
+    @Query("DELETE FROM transactions WHERE isTestTransaction = 1")
+    suspend fun clearTestTransactions()
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertTransaction(transaction: TransactionEntity): Long
 
@@ -121,6 +132,6 @@ interface TransactionDao {
     @Delete
     suspend fun deleteTransaction(transaction: TransactionEntity)
 
-    @Query("SELECT COUNT(*) FROM transactions WHERE isDeleted = 0 AND classificationStatus = 'PENDING'")
+    @Query("SELECT COUNT(*) FROM transactions WHERE isDeleted = 0 AND isTestTransaction = 0 AND classificationStatus = 'PENDING'")
     fun getPendingClassificationCountFlow(): Flow<Int>
 }

@@ -43,32 +43,42 @@ class TransactionRepository @Inject constructor(
     suspend fun getTransactionById(id: Long): TransactionEntity? =
         transactionDao.getTransactionById(id)
 
+    fun getTestTransactionsFlow(): Flow<List<TransactionEntity>> =
+        transactionDao.getTestTransactionsFlow()
+
+    suspend fun clearTestTransactions() =
+        transactionDao.clearTestTransactions()
+
     suspend fun insertTransaction(transaction: TransactionEntity): Long {
         val id = transactionDao.insertTransaction(transaction)
 
+        // Test transactions must never modify real account balances
+        if (transaction.isTestTransaction) {
+            return id
+        }
+
         // Update account balance
-        when (transaction.direction) {
-            TransactionDirection.INCOME -> {
-                val acc = accountDao.getAccountById(transaction.accountId)
-                if (acc != null) {
-                    accountDao.updateBalance(acc.id, acc.balanceMinor + transaction.amountMinor)
-                }
-            }
-            TransactionDirection.EXPENSE -> {
-                val acc = accountDao.getAccountById(transaction.accountId)
-                if (acc != null) {
-                    accountDao.updateBalance(acc.id, acc.balanceMinor - transaction.amountMinor)
-                }
-            }
-            TransactionDirection.TRANSFER -> {
-                val srcAcc = accountDao.getAccountById(transaction.accountId)
-                if (srcAcc != null) {
-                    accountDao.updateBalance(srcAcc.id, srcAcc.balanceMinor - transaction.amountMinor)
-                }
-                if (transaction.transferAccountId != null) {
-                    val destAcc = accountDao.getAccountById(transaction.transferAccountId)
-                    if (destAcc != null) {
-                        accountDao.updateBalance(destAcc.id, destAcc.balanceMinor + transaction.amountMinor)
+        val acc = accountDao.getAccountById(transaction.accountId)
+        if (acc != null) {
+            if (transaction.balanceAfterMinor != null) {
+                // If bank notification provides exact balance after transaction, sync directly
+                accountDao.updateBalance(acc.id, transaction.balanceAfterMinor)
+            } else {
+                when (transaction.direction) {
+                    TransactionDirection.INCOME -> {
+                        accountDao.updateBalance(acc.id, acc.balanceMinor + transaction.amountMinor)
+                    }
+                    TransactionDirection.EXPENSE -> {
+                        accountDao.updateBalance(acc.id, acc.balanceMinor - transaction.amountMinor)
+                    }
+                    TransactionDirection.TRANSFER -> {
+                        accountDao.updateBalance(acc.id, acc.balanceMinor - transaction.amountMinor)
+                        if (transaction.transferAccountId != null) {
+                            val destAcc = accountDao.getAccountById(transaction.transferAccountId)
+                            if (destAcc != null) {
+                                accountDao.updateBalance(destAcc.id, destAcc.balanceMinor + transaction.amountMinor)
+                            }
+                        }
                     }
                 }
             }

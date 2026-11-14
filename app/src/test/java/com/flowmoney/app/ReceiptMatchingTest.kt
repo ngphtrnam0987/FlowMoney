@@ -42,6 +42,8 @@ class ReceiptMatchingTest {
         override suspend fun softDeleteTransaction(id: Long, updatedAt: Long) {}
         override suspend fun deleteTransaction(transaction: TransactionEntity) {}
         override fun getPendingClassificationCountFlow() = throw NotImplementedError()
+        override fun getTestTransactionsFlow() = kotlinx.coroutines.flow.flowOf(emptyList<TransactionEntity>())
+        override suspend fun clearTestTransactions() {}
     }
 
     private class FakeLinkDao : TransactionReceiptLinkDao {

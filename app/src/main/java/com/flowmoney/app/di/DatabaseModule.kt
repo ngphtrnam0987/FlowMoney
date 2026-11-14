@@ -49,7 +49,7 @@ object DatabaseModule {
                 }
             }
         })
-        .fallbackToDestructiveMigrationOnDowngrade()
+        .fallbackToDestructiveMigration()
         .build()
     }
 

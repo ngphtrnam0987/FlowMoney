@@ -27,4 +27,5 @@ sealed class Screen(val route: String, val title: String, val icon: ImageVector?
     object CategoryManagement : Screen("category_management", "Quản lý danh mục")
     object AccountManagement : Screen("account_management", "Quản lý tài khoản")
     object PrivacySecurity : Screen("privacy_security", "Bảo mật & Quyền riêng tư")
+    object Diagnostics : Screen("diagnostics", "Chẩn đoán thông báo ngân hàng")
 }

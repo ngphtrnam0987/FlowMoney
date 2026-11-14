@@ -39,7 +39,7 @@ import com.flowmoney.app.data.local.entity.TransactionReceiptLinkEntity
         NotificationFingerprintEntity::class,
         AppSettingEntity::class
     ],
-    version = 1,
+    version = 2,
     exportSchema = false
 )
 @TypeConverters(Converters::class)

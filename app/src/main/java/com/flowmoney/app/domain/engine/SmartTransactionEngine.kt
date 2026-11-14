@@ -39,28 +39,43 @@ class SmartTransactionEngine @Inject constructor(
         packageName: String,
         title: String,
         text: String,
-        timestamp: Long = System.currentTimeMillis()
+        timestamp: Long = System.currentTimeMillis(),
+        isTestMode: Boolean = false
     ): TransactionProcessResult {
-        // 1. Source Validation: Check if bank notifications are enabled for this package
-        val enabledBanks = settingsRepository.enabledBanksFlow.first()
-        val isPackageAllowed = enabledBanks.contains(packageName) ||
-                               parserRegistry.getAllParsers().any { p ->
-                                   p.supportedPackages.contains(packageName) && enabledBanks.contains(packageName)
-                               }
+        // 1. Source & Parser Discovery
+        val parser = parserRegistry.findParser(packageName, title, text)
+            ?: return TransactionProcessResult.Ignored("Không nhận diện được định dạng giao dịch ngân hàng")
 
-        // 2. Parse notification
-        val parsed = parserRegistry.parseNotification(packageName, title, text, timestamp)
-            ?: return TransactionProcessResult.Ignored("Không thể phân tích định dạng thông báo")
+        // 2. Check enabled banks filter (skipped in test mode)
+        if (!isTestMode) {
+            val enabledBanks = settingsRepository.enabledBanksFlow.first()
+            if (enabledBanks.isNotEmpty()) {
+                val isExplicitlyAllowed = enabledBanks.contains(packageName) ||
+                        parser.supportedPackages.any { enabledBanks.contains(it) } ||
+                        enabledBanks.any { it.contains(parser.bankId, ignoreCase = true) }
+                if (!isExplicitlyAllowed && !parser.canParse(packageName, title, text)) {
+                    return TransactionProcessResult.Ignored("Ngân hàng ${parser.bankName} chưa được kích hoạt")
+                }
+            }
+        }
 
-        // 3. Duplicate Detection
-        if (duplicateDetector.isDuplicate(parsed)) {
+        // 3. Parse notification
+        val parsed = parser.parse(title, text, timestamp)
+            ?: return TransactionProcessResult.Ignored("Không thể trích xuất số tiền hoặc thông tin giao dịch hợp lệ")
+
+        if (parsed.amountMinor <= 0L) {
+            return TransactionProcessResult.Ignored("Số tiền giao dịch không hợp lệ (amount = 0)")
+        }
+
+        // 4. Duplicate Detection (skipped in test mode)
+        if (!isTestMode && duplicateDetector.isDuplicate(parsed)) {
             return TransactionProcessResult.Duplicate("Giao dịch đã tồn tại hoặc bị trùng lặp")
         }
 
-        // 4. Resolve or create account
+        // 5. Resolve or create account
         val accountId = resolveAccount(parsed)
 
-        // 5. Category Classification
+        // 6. Category Classification
         val classification = categoryClassifier.classify(
             description = parsed.transactionDescription,
             merchantName = parsed.counterparty,
@@ -68,40 +83,43 @@ class SmartTransactionEngine @Inject constructor(
             direction = parsed.direction
         )
 
-        val status = if (classification.confidenceScore >= 0.8f && parsed.confidenceScore >= 0.9f) {
+        val status = if (isTestMode) {
+            ClassificationStatus.CONFIRMED
+        } else if (classification.confidenceScore >= 0.8f && parsed.confidenceScore >= 0.9f) {
             ClassificationStatus.CONFIRMED
         } else {
             ClassificationStatus.PENDING
         }
 
-        // 6. Create Transaction Entity
+        // 7. Create Transaction Entity
         val transaction = TransactionEntity(
             accountId = accountId,
-            source = TransactionSource.BANK_NOTIFICATION,
-            externalReference = parsed.externalReference,
+            source = if (isTestMode) TransactionSource.MANUAL else TransactionSource.BANK_NOTIFICATION,
+            externalReference = if (isTestMode) "TEST_${System.currentTimeMillis()}" else parsed.externalReference,
             amountMinor = parsed.amountMinor,
             currency = parsed.currency,
             direction = parsed.direction,
             transactionTime = parsed.timestamp,
             merchantName = parsed.counterparty,
-            description = parsed.transactionDescription,
+            description = if (isTestMode) "[TEST] ${parsed.transactionDescription}" else parsed.transactionDescription,
             categoryId = classification.categoryId,
             classificationStatus = status,
             confidenceScore = classification.confidenceScore * parsed.confidenceScore,
-            balanceAfterMinor = parsed.balanceAfterMinor
+            balanceAfterMinor = if (isTestMode) null else parsed.balanceAfterMinor,
+            isTestTransaction = isTestMode
         )
 
-        // 7. Persist Transaction
+        // 8. Persist Transaction
         val transactionId = transactionRepository.insertTransaction(transaction)
 
-        // 8. Record duplicate fingerprint
-        duplicateDetector.recordFingerprint(parsed, transactionId)
-
-        // 9. Update today's daily review
-        try {
-            dailyReviewRepository.generateOrUpdateTodayReview()
-        } catch (e: Exception) {
-            // Non-critical, ignore
+        // 9. Record duplicate fingerprint & update review (only for production transactions)
+        if (!isTestMode) {
+            duplicateDetector.recordFingerprint(parsed, transactionId)
+            try {
+                dailyReviewRepository.generateOrUpdateTodayReview()
+            } catch (e: Exception) {
+                // Non-critical, ignore
+            }
         }
 
         return TransactionProcessResult.Success(transactionId, parsed)
@@ -110,11 +128,19 @@ class SmartTransactionEngine @Inject constructor(
     private suspend fun resolveAccount(parsed: ParsedBankNotification): Long {
         val allAccounts = accountDao.getAllAccounts()
 
-        // 1. Check if an account with matching bank name exists
-        val matchedByBank = allAccounts.firstOrNull {
-            it.bankName?.contains(parsed.bankIdentifier, ignoreCase = true) == true ||
-            it.name.contains(parsed.bankIdentifier, ignoreCase = true) ||
-            (parsed.maskedAccount != null && it.accountNumber?.endsWith(parsed.maskedAccount.takeLast(4)) == true)
+        // 1. Check if an account with matching bank name, identifier, or account number exists
+        val matchedByBank = allAccounts.firstOrNull { acc ->
+            val bankNameMatch = !acc.bankName.isNullOrBlank() && (
+                acc.bankName.contains(parsed.bankIdentifier, ignoreCase = true) ||
+                acc.bankName.contains(parsed.bankName, ignoreCase = true) ||
+                parsed.bankName.contains(acc.bankName, ignoreCase = true)
+            )
+            val nameMatch = acc.name.contains(parsed.bankIdentifier, ignoreCase = true) ||
+                    acc.name.contains(parsed.bankName, ignoreCase = true) ||
+                    parsed.bankName.contains(acc.name, ignoreCase = true)
+            val accNumMatch = parsed.maskedAccount != null &&
+                    acc.accountNumber?.endsWith(parsed.maskedAccount.takeLast(4)) == true
+            bankNameMatch || nameMatch || accNumMatch
         }
         if (matchedByBank != null) return matchedByBank.id
 

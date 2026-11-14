@@ -70,6 +70,8 @@ class CategoryClassificationTest {
         override suspend fun softDeleteTransaction(id: Long, updatedAt: Long) {}
         override suspend fun deleteTransaction(transaction: com.flowmoney.app.data.local.entity.TransactionEntity) {}
         override fun getPendingClassificationCountFlow() = throw NotImplementedError()
+        override fun getTestTransactionsFlow() = kotlinx.coroutines.flow.flowOf(emptyList<com.flowmoney.app.data.local.entity.TransactionEntity>())
+        override suspend fun clearTestTransactions() {}
     }
 
     private lateinit var categoryDao: FakeCategoryDao

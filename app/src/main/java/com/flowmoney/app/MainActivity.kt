@@ -53,6 +53,8 @@ import com.flowmoney.app.ui.screens.home.HomeViewModel
 import com.flowmoney.app.ui.screens.onboarding.OnboardingScreen
 import com.flowmoney.app.ui.screens.scan.ScanScreen
 import com.flowmoney.app.ui.screens.scan.ScanViewModel
+import com.flowmoney.app.ui.screens.settings.DiagnosticsScreen
+import com.flowmoney.app.ui.screens.settings.DiagnosticsViewModel
 import com.flowmoney.app.ui.screens.settings.PrivacyPolicyScreen
 import com.flowmoney.app.ui.screens.settings.SettingsScreen
 import com.flowmoney.app.ui.screens.settings.SettingsViewModel
@@ -101,6 +103,7 @@ class MainActivity : FragmentActivity() {
     private val scanViewModel: ScanViewModel by viewModels()
     private val analyticsViewModel: AnalyticsViewModel by viewModels()
     private val settingsViewModel: SettingsViewModel by viewModels()
+    private val diagnosticsViewModel: DiagnosticsViewModel by viewModels()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -274,7 +277,15 @@ class MainActivity : FragmentActivity() {
                         onNavigateToAccounts = { navController.navigate(Screen.AccountManagement.route) },
                         onNavigateToBudgets = { navController.navigate(Screen.Budget.route) },
                         onNavigateToCategories = { navController.navigate(Screen.CategoryManagement.route) },
-                        onNavigateToPrivacy = { navController.navigate(Screen.PrivacySecurity.route) }
+                        onNavigateToPrivacy = { navController.navigate(Screen.PrivacySecurity.route) },
+                        onNavigateToDiagnostics = { navController.navigate(Screen.Diagnostics.route) }
+                    )
+                }
+
+                composable(Screen.Diagnostics.route) {
+                    DiagnosticsScreen(
+                        viewModel = diagnosticsViewModel,
+                        onNavigateBack = { navController.popBackStack() }
                     )
                 }
 

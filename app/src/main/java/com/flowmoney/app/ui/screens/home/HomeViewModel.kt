@@ -54,18 +54,21 @@ class HomeViewModel @Inject constructor(
         transactionRepository.getRecentTransactionsFlow(10),
         transactionRepository.getPendingCountFlow(),
         categoryRepository.getAllCategoriesFlow(),
-        _refreshTrigger
-    ) { accounts, recentTx, pendingCount, categories, _ ->
+        transactionRepository.getTransactionsBetweenFlow(
+            DateUtils.getStartOfMonth(),
+            DateUtils.getEndOfMonth()
+        )
+    ) { accounts, recentTx, pendingCount, categories, monthlyTxs ->
         val catMap = categories.associateBy { it.id }
         val hasAcc = accounts.isNotEmpty()
         val totalBal = accounts.sumOf { it.balanceMinor }
 
-        val startOfMonth = DateUtils.getStartOfMonth()
-        val endOfMonth = DateUtils.getEndOfMonth()
-
-        val monthlyTxs = transactionRepository.getTransactionsBetween(startOfMonth, endOfMonth)
-        val income = monthlyTxs.filter { it.direction == com.flowmoney.app.data.model.TransactionDirection.INCOME }.sumOf { it.amountMinor }
-        val expense = monthlyTxs.filter { it.direction == com.flowmoney.app.data.model.TransactionDirection.EXPENSE }.sumOf { it.amountMinor }
+        val income = monthlyTxs
+            .filter { it.direction == com.flowmoney.app.data.model.TransactionDirection.INCOME }
+            .sumOf { it.amountMinor }
+        val expense = monthlyTxs
+            .filter { it.direction == com.flowmoney.app.data.model.TransactionDirection.EXPENSE }
+            .sumOf { it.amountMinor }
         val savings = (income - expense).coerceAtLeast(0L)
         val savingsRate = if (income > 0) ((income - expense).toFloat() / income * 100f).coerceIn(0f, 100f) else 0f
 
