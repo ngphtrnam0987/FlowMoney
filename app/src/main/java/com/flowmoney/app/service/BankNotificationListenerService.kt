@@ -30,18 +30,23 @@ class BankNotificationListenerService : NotificationListenerService() {
     @Inject
     lateinit var auditManager: NotificationAuditManager
 
+    @Inject
+    lateinit var screenshotDetectionManager: com.flowmoney.app.domain.screenshot.ScreenshotDetectionManager
+
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     override fun onListenerConnected() {
         super.onListenerConnected()
         Log.d(TAG, "NotificationListenerService connected")
         auditManager.setListenerConnected(true)
+        screenshotDetectionManager.startListening()
     }
 
     override fun onListenerDisconnected() {
         super.onListenerDisconnected()
         Log.w(TAG, "NotificationListenerService disconnected")
         auditManager.setListenerConnected(false)
+        screenshotDetectionManager.stopListening()
     }
 
     override fun onNotificationPosted(sbn: StatusBarNotification?) {

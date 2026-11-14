@@ -29,6 +29,17 @@ class SettingsRepository @Inject constructor(
         val KEY_DAILY_REMINDER_MINUTE = intPreferencesKey("daily_reminder_minute")
         val KEY_ENABLED_BANKS = stringSetPreferencesKey("enabled_banks")
         val KEY_CURRENCY = stringPreferencesKey("currency")
+        val KEY_SCREENSHOT_DETECTION_ENABLED = booleanPreferencesKey("screenshot_detection_enabled")
+    }
+
+    val isScreenshotDetectionEnabledFlow: Flow<Boolean> = context.dataStore.data.map { preferences ->
+        preferences[KEY_SCREENSHOT_DETECTION_ENABLED] ?: true
+    }
+
+    suspend fun setScreenshotDetectionEnabled(enabled: Boolean) {
+        context.dataStore.edit { preferences ->
+            preferences[KEY_SCREENSHOT_DETECTION_ENABLED] = enabled
+        }
     }
 
     val isOnboardingCompletedFlow: Flow<Boolean> = context.dataStore.data.map { preferences ->

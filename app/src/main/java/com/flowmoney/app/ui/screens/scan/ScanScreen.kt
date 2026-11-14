@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -132,6 +133,8 @@ fun ScanScreen(
                 state = state,
                 onUpdateMerchant = { viewModel.updateMerchantName(it) },
                 onUpdateTotal = { viewModel.updateTotalAmount(it) },
+                onSelectAccount = { viewModel.selectAccount(it) },
+                onSelectCategory = { viewModel.selectCategory(it) },
                 onRemoveItem = { viewModel.removeLineItem(it) },
                 onSelectMatch = { viewModel.selectMatchTransaction(it) },
                 onSave = { viewModel.saveReceipt() },
@@ -243,6 +246,8 @@ fun ReceiptEditReviewView(
     state: ScanUiState,
     onUpdateMerchant: (String) -> Unit,
     onUpdateTotal: (Long) -> Unit,
+    onSelectAccount: (Long) -> Unit,
+    onSelectCategory: (Long) -> Unit,
     onRemoveItem: (Int) -> Unit,
     onSelectMatch: (Long?) -> Unit,
     onSave: () -> Unit,
@@ -265,24 +270,38 @@ fun ReceiptEditReviewView(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    text = "Xác nhận kết quả quét",
-                    style = MaterialTheme.typography.headlineMedium,
-                    color = FlowTextPrimary,
-                    fontWeight = FontWeight.Bold
-                )
+                Column {
+                    Text(
+                        text = if (state.isBankTransfer) "Biên lai chuyển khoản" else "Xác nhận kết quả quét",
+                        style = MaterialTheme.typography.headlineMedium,
+                        color = FlowTextPrimary,
+                        fontWeight = FontWeight.Bold
+                    )
+                    if (state.isBankTransfer) {
+                        Text(
+                            text = "Tự động trích xuất thông tin chuyển khoản bằng AI",
+                            color = FlowPrimary,
+                            fontSize = 12.sp
+                        )
+                    }
+                }
                 IconButton(onClick = onCancel) {
                     Icon(Icons.Default.Close, contentDescription = "Hủy", tint = FlowTextSecondary)
                 }
             }
         }
 
-        // Merchant Name field
+        // Merchant / Recipient Name field
         item {
             OutlinedTextField(
                 value = state.merchantName,
                 onValueChange = onUpdateMerchant,
-                label = { Text("Tên cửa hàng", color = FlowTextSecondary) },
+                label = {
+                    Text(
+                        if (state.isBankTransfer) "Người nhận / Đơn vị thụ hưởng" else "Tên cửa hàng",
+                        color = FlowTextSecondary
+                    )
+                },
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(12.dp),
                 colors = OutlinedTextFieldDefaults.colors(
@@ -303,7 +322,12 @@ fun ReceiptEditReviewView(
                     val parsed = it.toLongOrNull()
                     if (parsed != null) onUpdateTotal(parsed)
                 },
-                label = { Text("Tổng tiền (VND)", color = FlowTextSecondary) },
+                label = {
+                    Text(
+                        if (state.isBankTransfer) "Số tiền chuyển (VND)" else "Tổng tiền (VND)",
+                        color = FlowTextSecondary
+                    )
+                },
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(12.dp),
                 colors = OutlinedTextFieldDefaults.colors(
@@ -313,6 +337,96 @@ fun ReceiptEditReviewView(
                     unfocusedTextColor = FlowTextPrimary
                 )
             )
+        }
+
+        // Account Selection
+        if (state.accounts.isNotEmpty()) {
+            item {
+                Column {
+                    Text(
+                        text = "Tài khoản thanh toán:",
+                        color = FlowTextSecondary,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    androidx.compose.foundation.lazy.LazyRow(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        items(state.accounts.size) { idx ->
+                            val acc = state.accounts[idx]
+                            val isSelected = state.selectedAccountId == acc.id
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(16.dp))
+                                    .background(
+                                        if (isSelected) FlowPrimary.copy(alpha = 0.25f)
+                                        else FlowDarkSurfaceVariant
+                                    )
+                                    .border(
+                                        width = 1.dp,
+                                        color = if (isSelected) FlowPrimary else FlowDarkBorder,
+                                        shape = RoundedCornerShape(16.dp)
+                                    )
+                                    .clickable { onSelectAccount(acc.id) }
+                                    .padding(horizontal = 14.dp, vertical = 8.dp)
+                            ) {
+                                Text(
+                                    text = acc.name,
+                                    color = if (isSelected) FlowPrimary else FlowTextPrimary,
+                                    fontSize = 13.sp,
+                                    fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Category Selection
+        if (state.categories.isNotEmpty()) {
+            item {
+                Column {
+                    Text(
+                        text = "Danh mục chi tiêu (AI tự động chọn):",
+                        color = FlowTextSecondary,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    androidx.compose.foundation.lazy.LazyRow(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        items(state.categories.size) { idx ->
+                            val cat = state.categories[idx]
+                            val isSelected = state.selectedCategoryId == cat.id
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(16.dp))
+                                    .background(
+                                        if (isSelected) FlowPrimary.copy(alpha = 0.25f)
+                                        else FlowDarkSurfaceVariant
+                                    )
+                                    .border(
+                                        width = 1.dp,
+                                        color = if (isSelected) FlowPrimary else FlowDarkBorder,
+                                        shape = RoundedCornerShape(16.dp)
+                                    )
+                                    .clickable { onSelectCategory(cat.id) }
+                                    .padding(horizontal = 14.dp, vertical = 8.dp)
+                            ) {
+                                Text(
+                                    text = cat.name,
+                                    color = if (isSelected) FlowPrimary else FlowTextPrimary,
+                                    fontSize = 13.sp,
+                                    fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal
+                                )
+                            }
+                        }
+                    }
+                }
+            }
         }
 
         // Intelligent Bank Transaction Match Section
@@ -445,10 +559,10 @@ fun ReceiptEditReviewView(
             ) {
                 Icon(Icons.Default.Check, contentDescription = null)
                 Spacer(modifier = Modifier.width(8.dp))
-                val saveText = if (state.selectedMatchTransactionId != null) {
-                    "Lưu & Ghép giao dịch ngân hàng"
-                } else {
-                    "Lưu hóa đơn & Tạo chi tiêu"
+                val saveText = when {
+                    state.selectedMatchTransactionId != null -> "Lưu & Ghép giao dịch ngân hàng"
+                    state.isBankTransfer -> "Ghi nhận chi tiêu: ${CurrencyUtils.formatVnd(state.totalAmount)}"
+                    else -> "Lưu hóa đơn & Tạo chi tiêu"
                 }
                 Text(saveText, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
             }

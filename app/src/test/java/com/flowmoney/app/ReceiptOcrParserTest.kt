@@ -73,4 +73,70 @@ class ReceiptOcrParserTest {
         assertEquals(105600L, result.totalMinor)
         assertEquals(3, result.lineItems.size)
     }
+
+    @Test
+    fun parseTechcombankTransferReceipt() {
+        val ocrSample = """
+            Chuyển tiền thành công
+            50.000 VND
+            Người nhận: NGUYEN PHAN TRONG NAM
+            Tài khoản nhận: 19073124996013
+            Ngân hàng nhận: Techcombank
+            Lời nhắn: tien com trua
+            Mã giao dịch: FT241114987213
+            Thời gian: 14/11/2026 20:30
+        """.trimIndent()
+
+        val result = parser.parseOcrText(ocrSample)
+
+        assertTrue(result.isBankTransfer)
+        assertEquals(50000L, result.totalMinor)
+        assertTrue(result.merchantName?.contains("NGUYEN PHAN TRONG NAM", ignoreCase = true) == true)
+        assertTrue(result.merchantName?.contains("Techcombank", ignoreCase = true) == true)
+        assertEquals("tien com trua", result.transactionNote)
+        assertEquals("FT241114987213", result.transactionCode)
+    }
+
+    @Test
+    fun parseVietcombankTransferReceipt() {
+        val ocrSample = """
+            GIAO DỊCH THÀNH CÔNG
+            Quý khách đã chuyển thành công số tiền
+            500.000 VND
+            đến người thụ hưởng
+            TRAN VAN B
+            Tài khoản thụ hưởng: 0071000123456
+            Tại ngân hàng: Vietcombank
+            Nội dung: Thanh toan tien phong
+            Mã tham chiếu: 987654321
+            Ngày thực hiện: 14/11/2026 14:22:10
+        """.trimIndent()
+
+        val result = parser.parseOcrText(ocrSample)
+
+        assertTrue(result.isBankTransfer)
+        assertEquals(500000L, result.totalMinor)
+        assertTrue(result.merchantName?.contains("TRAN VAN B", ignoreCase = true) == true)
+        assertTrue(result.merchantName?.contains("Vietcombank", ignoreCase = true) == true)
+        assertEquals("Thanh toan tien phong", result.transactionNote)
+    }
+
+    @Test
+    fun parseMomoTransferReceipt() {
+        val ocrSample = """
+            Chuyển tiền thành công
+            Số tiền: 30.000đ
+            Người nhận: NGUYEN PHAN TRONG NAM
+            Lời nhắn: tra tien nuoc
+            Mã giao dịch: 26318343885839
+            Thời gian: 14/11/2026 20:15
+        """.trimIndent()
+
+        val result = parser.parseOcrText(ocrSample)
+
+        assertTrue(result.isBankTransfer)
+        assertEquals(30000L, result.totalMinor)
+        assertTrue(result.merchantName?.contains("NGUYEN PHAN TRONG NAM", ignoreCase = true) == true)
+        assertEquals("tra tien nuoc", result.transactionNote)
+    }
 }

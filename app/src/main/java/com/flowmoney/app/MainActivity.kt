@@ -2,6 +2,7 @@ package com.flowmoney.app
 
 import android.content.Intent
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -99,12 +100,17 @@ class MainActivity : FragmentActivity() {
     @Inject
     lateinit var categoryClassifier: CategoryClassifier
 
+    @Inject
+    lateinit var screenshotDetectionManager: com.flowmoney.app.domain.screenshot.ScreenshotDetectionManager
+
     private val homeViewModel: HomeViewModel by viewModels()
     private val transactionsViewModel: TransactionsViewModel by viewModels()
     private val scanViewModel: ScanViewModel by viewModels()
     private val analyticsViewModel: AnalyticsViewModel by viewModels()
     private val settingsViewModel: SettingsViewModel by viewModels()
     private val diagnosticsViewModel: DiagnosticsViewModel by viewModels()
+
+    private var pendingScanUri by mutableStateOf<Uri?>(null)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -114,8 +120,11 @@ class MainActivity : FragmentActivity() {
             categoryRepository.ensureDefaultCategories()
         }
 
-        // Handle shared image (e.g. receipt shared from Gallery or other apps)
-        handleSharedIntent(intent)
+        // Start listening for screenshots (if user has granted permission and enabled setting)
+        screenshotDetectionManager.startListening()
+
+        // Handle shared image or screenshot notification intent
+        handleIncomingIntent(intent)
 
         setContent {
             FlowMoneyTheme {
@@ -124,16 +133,33 @@ class MainActivity : FragmentActivity() {
         }
     }
 
-    override fun onNewIntent(intent: Intent) {
-        super.onNewIntent(intent)
-        handleSharedIntent(intent)
+    override fun onDestroy() {
+        super.onDestroy()
+        screenshotDetectionManager.stopListening()
     }
 
-    private fun handleSharedIntent(intent: Intent?) {
-        if (intent?.action == Intent.ACTION_SEND && intent.type?.startsWith("image/") == true) {
-            val imageUri = intent.getParcelableExtra<Uri>(Intent.EXTRA_STREAM)
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        handleIncomingIntent(intent)
+    }
+
+    private fun handleIncomingIntent(intent: Intent?) {
+        if (intent == null) return
+
+        if (intent.action == Intent.ACTION_SEND && intent.type?.startsWith("image/") == true) {
+            val imageUri = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                intent.getParcelableExtra(Intent.EXTRA_STREAM, Uri::class.java)
+            } else {
+                @Suppress("DEPRECATION")
+                intent.getParcelableExtra<Uri>(Intent.EXTRA_STREAM)
+            }
             if (imageUri != null) {
-                scanViewModel.processImageUri(this, imageUri)
+                pendingScanUri = imageUri
+            }
+        } else if (intent.action == com.flowmoney.app.domain.screenshot.ScreenshotDetectionManager.ACTION_VIEW_SCREENSHOT) {
+            val uriStr = intent.getStringExtra("image_uri")
+            if (uriStr != null) {
+                pendingScanUri = Uri.parse(uriStr)
             }
         }
     }
@@ -144,6 +170,16 @@ class MainActivity : FragmentActivity() {
         val isOnboardingCompleted by settingsRepository.isOnboardingCompletedFlow.collectAsState(initial = true)
         val isBiometricEnabled by settingsRepository.isBiometricEnabledFlow.collectAsState(initial = false)
         var isAuthenticated by remember { mutableStateOf(!isBiometricEnabled) }
+
+        // Handle navigation to scan if an image was shared or detected
+        LaunchedEffect(pendingScanUri) {
+            val uri = pendingScanUri
+            if (uri != null) {
+                scanViewModel.processImageUri(this@MainActivity, uri)
+                navController.navigate(Screen.Scan.route)
+                pendingScanUri = null
+            }
+        }
 
         // Trigger biometric prompt if enabled and not yet authenticated
         LaunchedEffect(isBiometricEnabled) {

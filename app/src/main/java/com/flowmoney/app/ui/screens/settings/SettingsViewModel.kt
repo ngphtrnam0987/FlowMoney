@@ -27,9 +27,18 @@ data class BankSetting(
     val isEnabled: Boolean
 )
 
+private data class SettingsTuple(
+    val biometric: Boolean,
+    val reminderEnabled: Boolean,
+    val reminderTime: Pair<Int, Int>,
+    val bankSettings: List<BankSetting>,
+    val screenshotDetection: Boolean
+)
+
 data class SettingsUiState(
     val isBiometricEnabled: Boolean = false,
     val isDailyReminderEnabled: Boolean = true,
+    val isScreenshotDetectionEnabled: Boolean = true,
     val reminderHour: Int = 22,
     val reminderMinute: Int = 0,
     val banks: List<BankSetting> = emptyList(),
@@ -68,8 +77,9 @@ class SettingsViewModel @Inject constructor(
         settingsRepository.isBiometricEnabledFlow,
         settingsRepository.isDailyReminderEnabledFlow,
         settingsRepository.dailyReminderTimeFlow,
-        settingsRepository.enabledBanksFlow
-    ) { biometric, reminderEnabled, reminderTime, enabledBanks ->
+        settingsRepository.enabledBanksFlow,
+        settingsRepository.isScreenshotDetectionEnabledFlow
+    ) { biometric, reminderEnabled, reminderTime, enabledBanks, screenshotDetection ->
         val bankSettings = supportedBanks.map { (name, pkg) ->
             BankSetting(
                 name = name,
@@ -77,7 +87,7 @@ class SettingsViewModel @Inject constructor(
                 isEnabled = enabledBanks.contains(pkg)
             )
         }
-        Triple(biometric, Pair(reminderEnabled, reminderTime), bankSettings)
+        SettingsTuple(biometric, reminderEnabled, reminderTime, bankSettings, screenshotDetection)
     }
 
     val uiState: StateFlow<SettingsUiState> = combine(
@@ -85,14 +95,13 @@ class SettingsViewModel @Inject constructor(
         _message,
         _exportedFile
     ) { config, msg, expFile ->
-        val (biometric, reminderPair, bankSettings) = config
-        val (reminderEnabled, reminderTime) = reminderPair
         SettingsUiState(
-            isBiometricEnabled = biometric,
-            isDailyReminderEnabled = reminderEnabled,
-            reminderHour = reminderTime.first,
-            reminderMinute = reminderTime.second,
-            banks = bankSettings,
+            isBiometricEnabled = config.biometric,
+            isDailyReminderEnabled = config.reminderEnabled,
+            isScreenshotDetectionEnabled = config.screenshotDetection,
+            reminderHour = config.reminderTime.first,
+            reminderMinute = config.reminderTime.second,
+            banks = config.bankSettings,
             exportedFile = expFile,
             message = msg
         )
@@ -101,6 +110,12 @@ class SettingsViewModel @Inject constructor(
         SharingStarted.WhileSubscribed(5000),
         SettingsUiState()
     )
+
+    fun toggleScreenshotDetection(enabled: Boolean) {
+        viewModelScope.launch {
+            settingsRepository.setScreenshotDetectionEnabled(enabled)
+        }
+    }
 
     fun toggleBiometric(enabled: Boolean) {
         viewModelScope.launch {

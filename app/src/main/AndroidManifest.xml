@@ -53,6 +53,15 @@
             </intent-filter>
         </service>
 
+        <!-- Receiver for 1-click quick saving of detected bank transfer screenshots -->
+        <receiver
+            android:name=".receiver.QuickSaveExpenseReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.flowmoney.app.ACTION_QUICK_SAVE_EXPENSE" />
+            </intent-filter>
+        </receiver>
+
     </application>
 
 </manifest>

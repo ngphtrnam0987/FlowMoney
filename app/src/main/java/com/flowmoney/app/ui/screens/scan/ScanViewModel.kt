@@ -48,6 +48,10 @@ data class ScanUiState(
     val selectedMatchTransactionId: Long? = null,
     val categories: List<CategoryEntity> = emptyList(),
     val accounts: List<AccountEntity> = emptyList(),
+    val selectedAccountId: Long? = null,
+    val selectedCategoryId: Long? = null,
+    val isBankTransfer: Boolean = false,
+    val transactionNote: String? = null,
     val isSuccess: Boolean = false,
     val errorMessage: String? = null
 )
@@ -59,7 +63,8 @@ class ScanViewModel @Inject constructor(
     private val transactionRepository: TransactionRepository,
     private val receiptMatcher: ReceiptMatcher,
     private val categoryRepository: CategoryRepository,
-    private val accountRepository: AccountRepository
+    private val accountRepository: AccountRepository,
+    private val categoryClassifier: com.flowmoney.app.domain.engine.CategoryClassifier
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(ScanUiState())
@@ -73,7 +78,12 @@ class ScanViewModel @Inject constructor(
         viewModelScope.launch {
             val cats = categoryRepository.getAllCategories()
             val accs = accountRepository.getAllAccounts()
-            _uiState.value = _uiState.value.copy(categories = cats, accounts = accs)
+            _uiState.value = _uiState.value.copy(
+                categories = cats,
+                accounts = accs,
+                selectedAccountId = accs.firstOrNull { it.isDefault }?.id ?: accs.firstOrNull()?.id,
+                selectedCategoryId = cats.firstOrNull()?.id
+            )
         }
     }
 
@@ -135,6 +145,29 @@ class ScanViewModel @Inject constructor(
 
     private fun applyParsedReceipt(parsed: ParsedReceiptData) {
         viewModelScope.launch {
+            val cats = if (_uiState.value.categories.isNotEmpty()) _uiState.value.categories else categoryRepository.getAllCategories()
+            val accs = if (_uiState.value.accounts.isNotEmpty()) _uiState.value.accounts else accountRepository.getAllAccounts()
+
+            // Find matching account if bank is detected (e.g. "Techcombank", "Vietcombank")
+            val matchingAccount = if (parsed.bankName != null) {
+                accs.firstOrNull { it.name.contains(parsed.bankName, ignoreCase = true) }
+            } else null
+            val targetAccountId = matchingAccount?.id ?: accs.firstOrNull { it.isDefault }?.id ?: accs.firstOrNull()?.id
+
+            // Predict category
+            val textToClassify = if (parsed.isBankTransfer) {
+                "${parsed.transactionNote ?: ""} ${parsed.merchantName ?: ""}"
+            } else {
+                "${parsed.merchantName ?: ""} ${parsed.rawText}"
+            }
+            val classification = categoryClassifier.classify(
+                description = textToClassify,
+                merchantName = parsed.merchantName,
+                amountMinor = parsed.totalMinor,
+                direction = TransactionDirection.EXPENSE
+            )
+            val targetCategoryId = classification.categoryId ?: cats.firstOrNull { it.name == "Khác" }?.id ?: cats.firstOrNull()?.id
+
             // Find potential match candidates from bank transactions
             val mockReceipt = ReceiptEntity(
                 merchantName = parsed.merchantName,
@@ -151,9 +184,23 @@ class ScanViewModel @Inject constructor(
                 receiptDate = parsed.date ?: System.currentTimeMillis(),
                 lineItems = parsed.lineItems,
                 matchCandidates = candidates,
-                selectedMatchTransactionId = candidates.firstOrNull()?.transaction?.id
+                selectedMatchTransactionId = candidates.firstOrNull()?.transaction?.id,
+                categories = cats,
+                accounts = accs,
+                selectedAccountId = targetAccountId,
+                selectedCategoryId = targetCategoryId,
+                isBankTransfer = parsed.isBankTransfer,
+                transactionNote = parsed.transactionNote
             )
         }
+    }
+
+    fun selectAccount(accountId: Long) {
+        _uiState.value = _uiState.value.copy(selectedAccountId = accountId)
+    }
+
+    fun selectCategory(categoryId: Long) {
+        _uiState.value = _uiState.value.copy(selectedCategoryId = categoryId)
     }
 
     fun updateMerchantName(name: String) {
@@ -223,15 +270,25 @@ class ScanViewModel @Inject constructor(
                 val defaultAccount = accountRepository.getDefaultAccount()
                     ?: accountRepository.getAllAccounts().firstOrNull()
 
-                val accountId = defaultAccount?.id ?: accountRepository.createAccount(
-                    name = "Tiền mặt",
-                    type = AccountType.CASH,
-                    openingBalanceMinor = 0L,
-                    isDefault = true
-                )
+                val accountId = currentState.selectedAccountId
+                    ?: defaultAccount?.id
+                    ?: accountRepository.createAccount(
+                        name = "Tiền mặt",
+                        type = AccountType.CASH,
+                        openingBalanceMinor = 0L,
+                        isDefault = true
+                    )
 
-                val defaultCat = categoryRepository.findByName("Ăn uống")
-                    ?: categoryRepository.getAllCategories().firstOrNull()
+                val categoryId = currentState.selectedCategoryId
+                    ?: categoryRepository.findByName("Ăn uống")?.id
+                    ?: categoryRepository.getAllCategories().firstOrNull()?.id
+
+                val txDescription = if (currentState.isBankTransfer) {
+                    currentState.transactionNote?.takeIf { it.isNotBlank() }
+                        ?: "Chuyển tiền: ${currentState.merchantName}"
+                } else {
+                    "Quét hóa đơn: ${currentState.merchantName}"
+                }
 
                 val transaction = TransactionEntity(
                     accountId = accountId,
@@ -240,8 +297,8 @@ class ScanViewModel @Inject constructor(
                     direction = TransactionDirection.EXPENSE,
                     transactionTime = currentState.receiptDate,
                     merchantName = currentState.merchantName.ifBlank { "Hóa đơn" },
-                    description = "Quét hóa đơn: ${currentState.merchantName}",
-                    categoryId = defaultCat?.id,
+                    description = txDescription,
+                    categoryId = categoryId,
                     classificationStatus = ClassificationStatus.CONFIRMED,
                     linkedReceiptId = receiptId
                 )

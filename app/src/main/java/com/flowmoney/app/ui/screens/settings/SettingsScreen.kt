@@ -174,6 +174,54 @@ fun SettingsScreen(
                 }
             }
 
+            // Automatic Screenshot Detection for Bank Transfers
+            item {
+                Text(
+                    text = "Tự động nhận diện biên lai chuyển khoản",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = FlowTextPrimary
+                )
+            }
+
+            item {
+                FlowCard(
+                    modifier = Modifier.fillMaxWidth(),
+                    backgroundColor = FlowDarkSurface
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "Phát hiện ảnh chụp màn hình",
+                                color = FlowTextPrimary,
+                                fontSize = 15.sp,
+                                fontWeight = FontWeight.Medium
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = "Tự động gợi ý ghi nhận chi tiêu khi bạn vừa chụp màn hình chuyển khoản ngân hàng thành công.",
+                                color = FlowTextSecondary,
+                                fontSize = 12.sp
+                            )
+                        }
+                        Switch(
+                            checked = state.isScreenshotDetectionEnabled,
+                            onCheckedChange = { viewModel.toggleScreenshotDetection(it) },
+                            colors = SwitchDefaults.colors(
+                                checkedThumbColor = FlowTextPrimary,
+                                checkedTrackColor = FlowPrimary,
+                                uncheckedTrackColor = FlowDarkBorder
+                            )
+                        )
+                    }
+                }
+            }
+
             // Supported Banks Toggles
             item {
                 Text(
