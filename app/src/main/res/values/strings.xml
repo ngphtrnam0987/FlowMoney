@@ -1,0 +1,6 @@
+<resources>
+    <string name="app_name">FlowMoney</string>
+    <string name="notification_listener_service_label">FlowMoney Bank Listener</string>
+    <string name="notification_channel_name">Thông báo FlowMoney</string>
+    <string name="notification_channel_desc">Nhắc nhở tổng kết chi tiêu và cập nhật giao dịch</string>
+</resources>
