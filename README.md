@@ -5,6 +5,7 @@
 ![Jetpack Compose](https://img.shields.io/badge/UI-Jetpack_Compose_Material_3-blue.svg)
 ![Architecture](https://img.shields.io/badge/Architecture-Clean_Architecture_+_MVVM-orange.svg)
 ![Build](https://img.shields.io/badge/Build-Passing-brightgreen.svg)
+[![Download APK](https://img.shields.io/badge/Download-FlowMoney_APK_v1.0.0-purple?logo=android&logoColor=white)](https://github.com/ngphtrnam0987/FlowMoney/releases/download/v1.0.0/FlowMoney-v1.0.0.apk)
 ![License](https://img.shields.io/badge/License-Apache_2.0-lightgrey.svg)
 
 **FlowMoney** là ứng dụng quản lý tài chính cá nhân thông minh dành cho nền tảng Android, giải quyết triệt để rào cản người dùng phải nhập tay từng giao dịch thu chi hàng ngày. Ứng dụng tự động phát hiện giao dịch ngân hàng từ thông báo Android, tích hợp AI quét hóa đơn ngoại tuyến bằng Google ML Kit, tự động phân loại chi tiêu 5 cấp độ và nhắc nhở người dùng tổng kết tài chính cuối ngày.
