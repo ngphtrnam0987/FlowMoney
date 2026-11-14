@@ -48,6 +48,16 @@ object DatabaseModule {
                     categoryDao.insertCategories(FlowMoneyDatabase.DEFAULT_CATEGORIES)
                 }
             }
+
+            override fun onOpen(db: SupportSQLiteDatabase) {
+                super.onOpen(db)
+                CoroutineScope(Dispatchers.IO).launch {
+                    val categoryDao = categoryDaoProvider.get()
+                    if (categoryDao.getAllCategories().isEmpty()) {
+                        categoryDao.insertCategories(FlowMoneyDatabase.DEFAULT_CATEGORIES)
+                    }
+                }
+            }
         })
         .fallbackToDestructiveMigration()
         .build()

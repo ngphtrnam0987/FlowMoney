@@ -71,7 +71,8 @@ import com.flowmoney.app.ui.theme.FlowTextPrimary
 import com.flowmoney.app.ui.theme.FlowTextSecondary
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.runBlocking
+import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 @AndroidEntryPoint
@@ -107,6 +108,11 @@ class MainActivity : FragmentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        // Ensure default categories are seeded
+        lifecycleScope.launch {
+            categoryRepository.ensureDefaultCategories()
+        }
 
         // Handle shared image (e.g. receipt shared from Gallery or other apps)
         handleSharedIntent(intent)
@@ -319,7 +325,10 @@ class MainActivity : FragmentActivity() {
                         transactionRepository = transactionRepository,
                         categoryRepository = categoryRepository,
                         categoryClassifier = categoryClassifier,
-                        onNavigateBack = { navController.popBackStack() }
+                        onNavigateBack = { navController.popBackStack() },
+                        onNavigateToTransactionDetail = { id ->
+                            navController.navigate(Screen.TransactionDetail.createRoute(id))
+                        }
                     )
                 }
 

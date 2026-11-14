@@ -1,10 +1,12 @@
 package com.flowmoney.app.data.repository
 
+import com.flowmoney.app.data.local.FlowMoneyDatabase
 import com.flowmoney.app.data.local.dao.CategoryDao
 import com.flowmoney.app.data.local.dao.CategoryRuleDao
 import com.flowmoney.app.data.local.entity.CategoryEntity
 import com.flowmoney.app.data.local.entity.CategoryRuleEntity
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.map
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -13,9 +15,31 @@ class CategoryRepository @Inject constructor(
     private val categoryDao: CategoryDao,
     private val categoryRuleDao: CategoryRuleDao
 ) {
-    fun getAllCategoriesFlow(): Flow<List<CategoryEntity>> = categoryDao.getAllCategoriesFlow()
+    fun getAllCategoriesFlow(): Flow<List<CategoryEntity>> = categoryDao.getAllCategoriesFlow().map { list ->
+        if (list.isEmpty()) {
+            categoryDao.insertCategories(FlowMoneyDatabase.DEFAULT_CATEGORIES)
+            FlowMoneyDatabase.DEFAULT_CATEGORIES
+        } else {
+            list
+        }
+    }
 
-    suspend fun getAllCategories(): List<CategoryEntity> = categoryDao.getAllCategories()
+    suspend fun ensureDefaultCategories() {
+        val existing = categoryDao.getAllCategories()
+        if (existing.isEmpty()) {
+            categoryDao.insertCategories(FlowMoneyDatabase.DEFAULT_CATEGORIES)
+        }
+    }
+
+    suspend fun getAllCategories(): List<CategoryEntity> {
+        val existing = categoryDao.getAllCategories()
+        return if (existing.isEmpty()) {
+            categoryDao.insertCategories(FlowMoneyDatabase.DEFAULT_CATEGORIES)
+            FlowMoneyDatabase.DEFAULT_CATEGORIES
+        } else {
+            existing
+        }
+    }
 
     fun getExpenseCategoriesFlow(): Flow<List<CategoryEntity>> = categoryDao.getCategoriesByTypeFlow(false)
 

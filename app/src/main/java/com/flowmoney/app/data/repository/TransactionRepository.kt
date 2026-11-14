@@ -86,8 +86,44 @@ class TransactionRepository @Inject constructor(
         return id
     }
 
-    suspend fun updateTransaction(transaction: TransactionEntity) {
-        transactionDao.updateTransaction(transaction)
+    suspend fun updateTransaction(newTx: TransactionEntity) {
+        val oldTx = transactionDao.getTransactionById(newTx.id)
+        transactionDao.updateTransaction(newTx)
+
+        // Adjust balances if real transaction
+        if (oldTx != null && !oldTx.isTestTransaction && !newTx.isTestTransaction) {
+            // 1. Revert previous transaction impact on old account
+            val oldAcc = accountDao.getAccountById(oldTx.accountId)
+            if (oldAcc != null) {
+                when (oldTx.direction) {
+                    TransactionDirection.INCOME -> accountDao.updateBalance(oldAcc.id, oldAcc.balanceMinor - oldTx.amountMinor)
+                    TransactionDirection.EXPENSE -> accountDao.updateBalance(oldAcc.id, oldAcc.balanceMinor + oldTx.amountMinor)
+                    TransactionDirection.TRANSFER -> {
+                        accountDao.updateBalance(oldAcc.id, oldAcc.balanceMinor + oldTx.amountMinor)
+                        if (oldTx.transferAccountId != null) {
+                            val dest = accountDao.getAccountById(oldTx.transferAccountId)
+                            if (dest != null) accountDao.updateBalance(dest.id, dest.balanceMinor - oldTx.amountMinor)
+                        }
+                    }
+                }
+            }
+
+            // 2. Apply new transaction impact on new account
+            val newAcc = accountDao.getAccountById(newTx.accountId)
+            if (newAcc != null) {
+                when (newTx.direction) {
+                    TransactionDirection.INCOME -> accountDao.updateBalance(newAcc.id, newAcc.balanceMinor + newTx.amountMinor)
+                    TransactionDirection.EXPENSE -> accountDao.updateBalance(newAcc.id, newAcc.balanceMinor - newTx.amountMinor)
+                    TransactionDirection.TRANSFER -> {
+                        accountDao.updateBalance(newAcc.id, newAcc.balanceMinor - newTx.amountMinor)
+                        if (newTx.transferAccountId != null) {
+                            val dest = accountDao.getAccountById(newTx.transferAccountId)
+                            if (dest != null) accountDao.updateBalance(dest.id, dest.balanceMinor + newTx.amountMinor)
+                        }
+                    }
+                }
+            }
+        }
     }
 
     suspend fun updateClassification(id: Long, categoryId: Long) {
